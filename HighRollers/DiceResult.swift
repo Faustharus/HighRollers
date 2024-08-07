@@ -9,7 +9,7 @@ import Foundation
 
 struct DiceResult: Identifiable, Codable {
     
-    var id: String = UUID().uuidString
+    var id = UUID()
     var type: Int
     var numbers: Int
     var rolls = [Int]()
