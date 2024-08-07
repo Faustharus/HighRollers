@@ -24,6 +24,8 @@ struct ContentView: View {
         .init(.adaptive(minimum: 60))
     ]
     
+    let savePath = URL.documentsDirectory.appending(path: "SavedDice")
+    
     var body: some View {
         NavigationStack {
             Form {
@@ -55,33 +57,31 @@ struct ContentView: View {
                                 .shadow(radius: 3)
                                 .font(.title)
                                 .padding(5)
-                                
-                                
-                                
                         }
                     }
                 }
                 .disabled(stoppedDice < currentResult.rolls.count)
                 
-                List {
-//                    ForEach(0 ..< resultArray.count, id: \.self) { item in
-//                        switch item + 1 {
-//                        case 1, 21, 31, 41, 51, 61, 71, 81, 91:
-//                            Text("\(item + 1)st Draw : \(resultArray[item])")
-//                        case 2, 22, 32, 42, 52, 62, 72, 82, 92:
-//                            Text("\(item + 1)nd Draw : \(resultArray[item])")
-//                        case 3, 23, 33, 43, 53, 63, 73, 83, 93:
-//                            Text("\(item + 1)rd Draw : \(resultArray[item])")
-//                        default:
-//                            Text("\(item + 1)th Draw : \(resultArray[item])")
-//                        }
-//                    }
+                if !resultArray.isEmpty {
+                    Section("Previous Results") {
+                        ForEach(resultArray) { item in
+                            VStack(alignment: .leading) {
+                                Text("\(item.numbers) x D\(item.type)")
+                                    .font(.headline.bold())
+                                Text(item.rolls.compactMap(String.init).joined(separator: ", "))
+                            }
+                        }
+                    }
                 }
             }
             .navigationTitle("High Rollers")
+            .toolbar {
+                EditButton()
+            }
             .onReceive(timer) { time in
                 updateDice()
             }
+            .onAppear(perform: load)
         }
     }
 }
@@ -92,45 +92,31 @@ struct ContentView: View {
 
 extension ContentView {
     
+    func save() {
+        if let data = try? JSONEncoder().encode(resultArray) {
+            try? data.write(to: savePath, options: [.atomic, .completeFileProtection])
+        }
+    }
+    
+    func load() {
+        if let data = try? Data(contentsOf: savePath) {
+            if let decoded = try? JSONDecoder().decode([DiceResult].self, from: data) {
+                resultArray = decoded
+            }
+        }
+    }
+    
+    func delete(at offsets: IndexSet) {
+        resultArray.remove(atOffsets: offsets)
+    }
+    
     func rollDice() {
         currentResult = DiceResult(type: selectedDiceType, numbers: selectedDiceNumbers)
         
         stoppedDice = -20
-//        timerCancellables.forEach { $0.cancel() }
-//        timerCancellables.removeAll()
-//        
-//        let finalResult = Int.random(in: number...type * number)
-//        var updateCount = 0
-//        let maxUpdates = type / 5
-        
-//        timer
-//            .sink { _ in
-//                if updateCount < maxUpdates {
-//                    updateCount += 1
-//                    result = Int.random(in: number...type * number)
-//                } else {
-//                    result = finalResult
-//                    resultArray.append(result)
-//                    timerCancellables.forEach { $0.cancel() }
-//                    timerCancellables.removeAll()
-//                }
-//            }
-//            .store(in: &timerCancellables)
-        
-//        let typeOf = Int.random(in: 1...type)
-//        let numberOf = number
-//        let total = typeOf * numberOf
-//        resultArray.append(total)
-//        
-//        return total
     }
     
-    func updateDice() { 
-        /**
-         Check if we’ve already stopped all our dice, because if so we need no further action until the user rolls again.
-         Count from the value of stoppedDice up to the number of dice we’re rolling, giving each one a fresh random number.
-         Add 1 to stoppedDice so that another dice gets stopped, meaning that the current value it shows is its final value.
-         */
+    func updateDice() {
         guard stoppedDice < currentResult.rolls.count else { return }
         
         for i in stoppedDice ..< selectedDiceNumbers {
@@ -139,5 +125,10 @@ extension ContentView {
         }
         
         stoppedDice += 1
+        
+        if stoppedDice == selectedDiceNumbers {
+            resultArray.insert(currentResult, at: 0)
+            save()
+        }
     }
 }
