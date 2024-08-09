@@ -9,6 +9,8 @@ import SwiftUI
 
 struct ContentView: View {
     
+    @Environment(\.accessibilityVoiceOverEnabled) var accessibilityVoiceOverEnabled
+    
     @State private var stoppedDice: Int = 0
     @State private var currentResult = DiceResult(type: 0, numbers: 0)
     @State private var resultArray = [DiceResult]()
@@ -59,6 +61,8 @@ struct ContentView: View {
                                 .padding(5)
                         }
                     }
+                    .accessibilityElement()
+                    .accessibilityLabel("\(currentResult.rollsResult)")
                 }
                 .disabled(stoppedDice < currentResult.rolls.count)
                 
@@ -68,8 +72,10 @@ struct ContentView: View {
                             VStack(alignment: .leading) {
                                 Text("\(item.numbers) x D\(item.type)")
                                     .font(.headline.bold())
-                                Text(item.rolls.compactMap(String.init).joined(separator: ", "))
+                                Text(item.rollsResult)
                             }
+                            .accessibilityElement()
+                            .accessibilityLabel("\(item.numbers) D\(item.type), \(item.rollsResult)")
                         }
                     }
                 }
@@ -82,6 +88,7 @@ struct ContentView: View {
                 updateDice()
             }
             .onAppear(perform: load)
+            .sensoryFeedback(.impact, trigger: resultArray.count)
         }
     }
 }
@@ -106,14 +113,16 @@ extension ContentView {
         }
     }
     
-    func delete(at offsets: IndexSet) {
-        resultArray.remove(atOffsets: offsets)
-    }
-    
     func rollDice() {
         currentResult = DiceResult(type: selectedDiceType, numbers: selectedDiceNumbers)
         
-        stoppedDice = -20
+        if accessibilityVoiceOverEnabled {
+            stoppedDice = selectedDiceNumbers
+            resultArray.insert(currentResult, at: 0)
+            save()
+        } else {
+            stoppedDice = -20
+        }
     }
     
     func updateDice() {
